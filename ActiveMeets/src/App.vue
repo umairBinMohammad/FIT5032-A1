@@ -46,7 +46,6 @@
 </template>
 
 <script setup>
-// nothing needed here
 </script>
 
 <style>
