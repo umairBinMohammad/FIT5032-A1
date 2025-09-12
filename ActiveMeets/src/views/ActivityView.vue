@@ -25,11 +25,26 @@
                     <li><strong>Age:</strong> {{ a.age }}</li>
                     <li><strong>Accessibility:</strong> {{ a.accessibility }}</li>
                   </ul>
+                  <div class="mt-2">
+                    <span class="fw-bold">Rating:</span>
+                    {{ getAverageRating(a.id) }} / 5
+                  </div>
                 </div>
-                <div class="card-footer bg-white">
+                <div class="card-footer bg-white d-flex justify-content-between align-items-center">
                   <button class="btn btn-sm btn-outline-secondary" @click="selectActivity(a)">
                     Select
                   </button>
+                  <div class="d-flex align-items-center">
+                    <label class="me-2 mb-0 small">Rate:</label>
+                    <select class="form-select form-select-sm w-auto" @change="submitRating(a.id, $event.target.value)">
+                      <option value="0">0</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -147,23 +162,28 @@
             </div>
           </div>
         </div>
-      </div> </div>
+      </div>
+    </div>
   </section>
 </template>
+
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { fetchActivities } from '../data/activities'
+import { authState } from "../auth";
 // --------- Dynamic data ----------
 const activities = ref([])
 const loading = ref(true)
 const query = ref('')
 const filtered = ref([])
+const ratings = ref([]) // To store ratings
 onMounted(async () => {
   activities.value = await fetchActivities()
   filtered.value = activities.value
   loading.value = false
-  // Load any saved registrations
+  // Load any saved registrations and ratings
   registrations.value = loadRegistrations()
+  ratings.value = loadRatings()
 })
 // filter logic
 function filterActivities() {
@@ -176,6 +196,56 @@ function selectActivity(a) {
   form.value.activityId = a.id
   validateActivity(true) // Validate on selection
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+// New: Rating functions
+const RATINGS_STORAGE_KEY = 'activemeets_ratings_v1'
+
+function loadRatings() {
+  try {
+    const raw = localStorage.getItem(RATINGS_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveRatings(list) {
+  localStorage.setItem(RATINGS_STORAGE_KEY, JSON.stringify(list))
+}
+
+function submitRating(activityId, score) {
+  // Check if a user is authenticated
+  if (!authState.isAuthenticated || !authState.user || !authState.user.username) {
+    alert('You must be logged in to rate an activity.');
+    return;
+  }
+  
+  const userUsername = authState.user.username;
+  const allRatings = loadRatings();
+  
+  // Check if this user has already rated this activity
+  const existingRating = allRatings.find(r => r.activityId === activityId && r.username === userUsername);
+  
+  if (existingRating) {
+    alert('You have already rated this activity.');
+    return;
+  }
+  
+  const newRating = { id: crypto.randomUUID(), activityId, score: Number(score), username: userUsername };
+  allRatings.push(newRating);
+  saveRatings(allRatings);
+  ratings.value = allRatings;
+  alert('Thank you for your rating!');
+}
+
+function getAverageRating(activityId) {
+  const activityRatings = ratings.value.filter(r => r.activityId === activityId)
+  if (activityRatings.length === 0) {
+    return 'No ratings'
+  }
+  const totalScore = activityRatings.reduce((sum, r) => sum + r.score, 0)
+  const average = totalScore / activityRatings.length
+  return average.toFixed(1)
 }
 // --------- Form + Validations ----------
 const form = ref({
