@@ -4,11 +4,11 @@ import ActivityView from '../views/ActivityView.vue'
 import LoginPage from '../views/LoginPage.vue'
 import ClientDashboard from '../views/ClientDashboard.vue'
 import ManagerDashboard from '../views/ManagerDashboard.vue'
+import ActivityManagerView from '../views/ActivityManagerView.vue' // New import
 import { authState } from "../auth";
 
 const routes = [
   { path: '/', name: 'home', component: HomeView },
-  { path: '/activity', name: 'activity', component: ActivityView },
   { path: '/login', name: 'login', component: LoginPage },
   {
     path: '/client',
@@ -21,7 +21,19 @@ const routes = [
     name: 'managerDashboard',
     component: ManagerDashboard,
     meta: { requiresAuth: true, role: 'clubManager' }
-  }
+  },
+  {
+    path: '/client/activities', // Client-specific activity view
+    name: 'clientActivities',
+    component: ActivityView,
+    meta: { requiresAuth: true, role: 'client' }
+  },
+  {
+    path: '/manager/activities', // Manager-specific activity view
+    name: 'managerActivities',
+    component: ActivityManagerView,
+    meta: { requiresAuth: true, role: 'clubManager' }
+  },
 ];
 
 const router = createRouter({

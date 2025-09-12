@@ -22,7 +22,10 @@
               <RouterLink class="nav-link" to="/">Home</RouterLink>
             </li>
             <li class="nav-item">
-              <RouterLink class="nav-link" to="/activity">Find an Activity</RouterLink>
+              <RouterLink class="nav-link" to="/client/activities">Find an Activity</RouterLink>
+            </li>
+            <li class="nav-item">
+              <RouterLink class="nav-link" to="/manager/activities">Host an Activity</RouterLink>
             </li>
             <li class="nav-item"><span class="nav-link disabled">For Clubs</span></li>
             <li class="nav-item"><span class="nav-link disabled">About Us</span></li>
