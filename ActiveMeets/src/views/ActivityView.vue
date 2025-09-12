@@ -143,10 +143,10 @@
                   </thead>
                   <tbody>
                     <tr v-for="r in registrations" :key="r.id">
-                      <td>{{ findActivityName(r.activityId) }}</td>
-                      <td>{{ r.name }}</td>
-                      <td>{{ r.email }}</td>
-                      <td>{{ r.age }}</td>
+                      <td><span v-html="findActivityName(r.activityId)"></span></td>
+                      <td><span v-html="sanitize(r.name)"></span></td>
+                      <td><span v-html="sanitize(r.email)"></span></td>
+                      <td><span v-html="sanitize(r.age)"></span></td>
                       <td>
                         <button class="btn btn-sm btn-outline-danger" @click="removeRegistration(r.id)">
                           Remove
@@ -171,6 +171,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { fetchActivities } from '../data/activities'
 import { authState } from "../auth";
+import DOMPurify from 'dompurify'; // Import DOMPurify
 // --------- Dynamic data ----------
 const activities = ref([])
 const loading = ref(true)
@@ -214,7 +215,6 @@ function saveRatings(list) {
 }
 
 function submitRating(activityId, score) {
-  // Check if a user is authenticated
   if (!authState.isAuthenticated || !authState.user || !authState.user.username) {
     alert('You must be logged in to rate an activity.');
     return;
@@ -223,7 +223,6 @@ function submitRating(activityId, score) {
   const userUsername = authState.user.username;
   const allRatings = loadRatings();
   
-  // Check if this user has already rated this activity
   const existingRating = allRatings.find(r => r.activityId === activityId && r.username === userUsername);
   
   if (existingRating) {
@@ -247,6 +246,11 @@ function getAverageRating(activityId) {
   const average = totalScore / activityRatings.length
   return average.toFixed(1)
 }
+// New: XSS protection helper
+const sanitize = (dirty) => {
+  if (dirty === null) return '';
+  return DOMPurify.sanitize(dirty);
+};
 // --------- Form + Validations ----------
 const form = ref({
   activityId: '',
@@ -305,7 +309,14 @@ function onSubmit() {
     return;
   }
   
-  const entry = { id: crypto.randomUUID(), ...form.value }
+  const entry = { 
+    id: crypto.randomUUID(), 
+    // Sanitize data before saving
+    activityId: form.value.activityId,
+    name: sanitize(form.value.name),
+    email: sanitize(form.value.email),
+    age: form.value.age // Number, no need to sanitize
+  }
   const all = loadRegistrations()
   all.push(entry)
   saveRegistrations(all)

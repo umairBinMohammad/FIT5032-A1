@@ -96,11 +96,11 @@
               </thead>
               <tbody>
                 <tr v-for="a in activities" :key="a.id">
-                  <td>{{ a.name }}</td>
-                  <td>{{ a.location }}</td>
-                  <td>{{ a.level }}</td>
-                  <td>{{ a.age }}</td>
-                  <td>{{ a.accessibility }}</td>
+                  <td><span v-html="sanitize(a.name)"></span></td>
+                  <td><span v-html="sanitize(a.location)"></span></td>
+                  <td><span v-html="sanitize(a.level)"></span></td>
+                  <td><span v-html="sanitize(a.age)"></span></td>
+                  <td><span v-html="sanitize(a.accessibility)"></span></td>
                   <td>
                     <button class="btn btn-sm btn-outline-danger" @click="removeActivity(a.id)">
                       Remove
@@ -121,6 +121,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import DOMPurify from 'dompurify';
 
 const activities = ref([])
 const STORAGE_KEY = 'activemeets_activities_v1'
@@ -168,12 +169,27 @@ function validateForm() {
   return Object.values(errors.value).every(e => e === null)
 }
 
+const sanitize = (dirty) => {
+  if (dirty === null || typeof dirty === 'undefined') {
+    return '';
+  }
+  return DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
+};
+
 function onSubmit() {
   if (!validateForm()) {
     return
   }
 
-  const newActivity = { id: crypto.randomUUID(), ...form.value }
+  const sanitizedForm = {
+    name: sanitize(form.value.name),
+    location: sanitize(form.value.location),
+    level: sanitize(form.value.level),
+    age: sanitize(form.value.age),
+    accessibility: sanitize(form.value.accessibility),
+  };
+
+  const newActivity = { id: crypto.randomUUID(), ...sanitizedForm }
   const allActivities = loadActivities()
   allActivities.push(newActivity)
   saveActivities(allActivities)
