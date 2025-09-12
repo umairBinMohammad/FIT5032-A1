@@ -1,6 +1,5 @@
 <template>
   <div class="min-vh-100 d-flex flex-column">
-    <!-- Top Nav -->
     <nav class="navbar navbar-expand-lg navbar-dark" style="background:#ff7a00;">
       <div class="container">
         <RouterLink class="navbar-brand fw-bold" to="/">ActiveMeets</RouterLink>
@@ -25,16 +24,17 @@
             <li class="nav-item">
               <RouterLink class="nav-link" to="/activity">Find an Activity</RouterLink>
             </li>
-            <!-- Non-navigable (disabled look) -->
             <li class="nav-item"><span class="nav-link disabled">For Clubs</span></li>
             <li class="nav-item"><span class="nav-link disabled">About Us</span></li>
             <li class="nav-item"><span class="nav-link disabled">Contact</span></li>
+            <li class="nav-item">
+              <RouterLink class="nav-link" to="/login">Login</RouterLink>
+            </li>
           </ul>
         </div>
       </div>
     </nav>
 
-    <!-- Routed pages -->
     <main class="flex-grow-1 bg-light">
       <RouterView />
     </main>
@@ -46,6 +46,7 @@
 </template>
 
 <script setup>
+import { RouterLink, RouterView } from 'vue-router'
 </script>
 
 <style>
