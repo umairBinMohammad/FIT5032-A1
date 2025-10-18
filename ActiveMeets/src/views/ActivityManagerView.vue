@@ -86,16 +86,49 @@
             <table class="table table-sm align-middle mb-0">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Location</th>
-                  <th>Level</th>
-                  <th>Age</th>
-                  <th>Accessibility</th>
+                  <th role="button" @click="setSort('name')">
+                    Name
+                    <small v-if="sortKey==='name'">{{ sortAsc ? '▲' : '▼' }}</small>
+                  </th>
+                  <th role="button" @click="setSort('location')">
+                    Location
+                    <small v-if="sortKey==='location'">{{ sortAsc ? '▲' : '▼' }}</small>
+                  </th>
+                  <th role="button" @click="setSort('level')">
+                    Level
+                    <small v-if="sortKey==='level'">{{ sortAsc ? '▲' : '▼' }}</small>
+                  </th>
+                  <th role="button" @click="setSort('age')">
+                    Age
+                    <small v-if="sortKey==='age'">{{ sortAsc ? '▲' : '▼' }}</small>
+                  </th>
+                  <th role="button" @click="setSort('accessibility')">
+                    Accessibility
+                    <small v-if="sortKey==='accessibility'">{{ sortAsc ? '▲' : '▼' }}</small>
+                  </th>
+                  <th></th>
+                </tr>
+                <tr>
+                  <th>
+                    <input v-model.trim="filters.name" type="text" class="form-control form-control-sm" placeholder="Search name" />
+                  </th>
+                  <th>
+                    <input v-model.trim="filters.location" type="text" class="form-control form-control-sm" placeholder="Search location" />
+                  </th>
+                  <th>
+                    <input v-model.trim="filters.level" type="text" class="form-control form-control-sm" placeholder="Search level" />
+                  </th>
+                  <th>
+                    <input v-model.trim="filters.age" type="text" class="form-control form-control-sm" placeholder="Search age" />
+                  </th>
+                  <th>
+                    <input v-model.trim="filters.accessibility" type="text" class="form-control form-control-sm" placeholder="Search accessibility" />
+                  </th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="a in activities" :key="a.id">
+                <tr v-for="a in pagedActivities" :key="a.id">
                   <td><span v-html="sanitize(a.name)"></span></td>
                   <td><span v-html="sanitize(a.location)"></span></td>
                   <td><span v-html="sanitize(a.level)"></span></td>
@@ -107,8 +140,20 @@
                     </button>
                   </td>
                 </tr>
+                <tr v-if="filteredActivities.length === 0">
+                  <td colspan="6" class="text-muted small">No matching activities.</td>
+                </tr>
               </tbody>
             </table>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mt-2" v-if="filteredActivities.length">
+            <div class="small text-muted">
+              Showing {{ startItem }}–{{ endItem }} of {{ filteredActivities.length }}
+            </div>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-secondary" :disabled="page===1" @click="page--">Prev</button>
+              <button class="btn btn-outline-secondary" :disabled="page>=totalPages" @click="page++">Next</button>
+            </div>
           </div>
           <div v-if="activities.length" class="d-grid mt-2">
             <button class="btn btn-outline-secondary btn-sm" @click="clearAll">Clear All</button>
@@ -120,7 +165,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import DOMPurify from 'dompurify';
 
 const activities = ref([])
@@ -144,6 +189,66 @@ const errors = ref({
 
 onMounted(() => {
   activities.value = loadActivities()
+})
+
+// Sorting, filtering, pagination state
+const sortKey = ref('name')
+const sortAsc = ref(true)
+const page = ref(1)
+const perPage = 10
+const filters = ref({ name: '', location: '', level: '', age: '', accessibility: '' })
+
+watch(filters, () => { page.value = 1 }, { deep: true })
+watch(activities, () => { page.value = 1 })
+
+function setSort(key) {
+  if (sortKey.value === key) {
+    sortAsc.value = !sortAsc.value
+  } else {
+    sortKey.value = key
+    sortAsc.value = true
+  }
+}
+
+const filteredActivities = computed(() => {
+  const f = filters.value
+  const toText = (v) => (v ?? '').toString().toLowerCase()
+  return activities.value.filter(a =>
+    toText(a.name).includes(toText(f.name)) &&
+    toText(a.location).includes(toText(f.location)) &&
+    toText(a.level).includes(toText(f.level)) &&
+    toText(a.age).includes(toText(f.age)) &&
+    toText(a.accessibility).includes(toText(f.accessibility))
+  )
+})
+
+const sortedActivities = computed(() => {
+  const list = [...filteredActivities.value]
+  const key = sortKey.value
+  list.sort((a, b) => {
+    const av = a[key] ?? ''
+    const bv = b[key] ?? ''
+    // numeric compare if both are numeric
+    const an = parseFloat(av)
+    const bn = parseFloat(bv)
+    let cmp
+    if (!Number.isNaN(an) && !Number.isNaN(bn)) {
+      cmp = an - bn
+    } else {
+      cmp = av.toString().localeCompare(bv.toString())
+    }
+    return sortAsc.value ? cmp : -cmp
+  })
+  return list
+})
+
+const totalPages = computed(() => Math.max(1, Math.ceil(sortedActivities.value.length / perPage)))
+const startItem = computed(() => (sortedActivities.value.length === 0 ? 0 : (page.value - 1) * perPage + 1))
+const endItem = computed(() => Math.min(sortedActivities.value.length, page.value * perPage))
+const pagedActivities = computed(() => {
+  const p = Math.min(page.value, totalPages.value)
+  const start = (p - 1) * perPage
+  return sortedActivities.value.slice(start, start + perPage)
 })
 
 const validateField = (field, message, blur) => {

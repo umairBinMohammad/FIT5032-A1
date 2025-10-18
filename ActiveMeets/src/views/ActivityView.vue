@@ -134,15 +134,34 @@
                 <table class="table table-sm align-middle mb-0">
                   <thead>
                     <tr>
-                      <th>Activity</th>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Age</th>
+                      <th role="button" @click="setRegSort('activity')">
+                        Activity
+                        <small v-if="regSortKey==='activity'">{{ regSortAsc ? '▲' : '▼' }}</small>
+                      </th>
+                      <th role="button" @click="setRegSort('name')">
+                        Name
+                        <small v-if="regSortKey==='name'">{{ regSortAsc ? '▲' : '▼' }}</small>
+                      </th>
+                      <th role="button" @click="setRegSort('email')">
+                        Email
+                        <small v-if="regSortKey==='email'">{{ regSortAsc ? '▲' : '▼' }}</small>
+                      </th>
+                      <th role="button" @click="setRegSort('age')">
+                        Age
+                        <small v-if="regSortKey==='age'">{{ regSortAsc ? '▲' : '▼' }}</small>
+                      </th>
+                      <th></th>
+                    </tr>
+                    <tr>
+                      <th><input v-model.trim="regFilters.activity" class="form-control form-control-sm" placeholder="Search activity" /></th>
+                      <th><input v-model.trim="regFilters.name" class="form-control form-control-sm" placeholder="Search name" /></th>
+                      <th><input v-model.trim="regFilters.email" class="form-control form-control-sm" placeholder="Search email" /></th>
+                      <th><input v-model.trim="regFilters.age" class="form-control form-control-sm" placeholder="Search age" /></th>
                       <th></th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="r in registrations" :key="r.id">
+                    <tr v-for="r in pagedRegistrations" :key="r.id">
                       <td><span v-html="findActivityName(r.activityId)"></span></td>
                       <td><span v-html="sanitize(r.name)"></span></td>
                       <td><span v-html="sanitize(r.email)"></span></td>
@@ -153,8 +172,20 @@
                         </button>
                       </td>
                     </tr>
+                    <tr v-if="filteredRegistrations.length === 0">
+                      <td colspan="5" class="text-muted small">No matching registrations.</td>
+                    </tr>
                   </tbody>
                 </table>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mt-2" v-if="filteredRegistrations.length">
+                <div class="small text-muted">
+                  Showing {{ regStartItem }}–{{ regEndItem }} of {{ filteredRegistrations.length }}
+                </div>
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-secondary" :disabled="regPage===1" @click="regPage--">Prev</button>
+                  <button class="btn btn-outline-secondary" :disabled="regPage>=regTotalPages" @click="regPage++">Next</button>
+                </div>
               </div>
               <div v-if="registrations.length" class="d-grid mt-2">
                 <button class="btn btn-outline-secondary btn-sm" @click="clearAll">Clear All</button>
@@ -168,7 +199,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { fetchActivities } from '../data/activities'
 import { authState } from "../auth";
 import DOMPurify from 'dompurify'; // Import DOMPurify
@@ -351,4 +382,62 @@ function findActivityName(id) {
   const a = activities.value.find(x => x.id === id)
   return a ? a.name : '—'
 }
+
+// Sorting, filtering, pagination for registrations table
+const regSortKey = ref('activity') // 'activity' maps to activity name
+const regSortAsc = ref(true)
+const regPage = ref(1)
+const regPerPage = 10
+const regFilters = ref({ activity: '', name: '', email: '', age: '' })
+
+watch(registrations, () => { regPage.value = 1 })
+watch(regFilters, () => { regPage.value = 1 }, { deep: true })
+
+function setRegSort(key) {
+  if (regSortKey.value === key) {
+    regSortAsc.value = !regSortAsc.value
+  } else {
+    regSortKey.value = key
+    regSortAsc.value = true
+  }
+}
+
+const filteredRegistrations = computed(() => {
+  const f = regFilters.value
+  const toText = (v) => (v ?? '').toString().toLowerCase()
+  return registrations.value.filter(r =>
+    toText(findActivityName(r.activityId)).includes(toText(f.activity)) &&
+    toText(r.name).includes(toText(f.name)) &&
+    toText(r.email).includes(toText(f.email)) &&
+    toText(r.age).includes(toText(f.age))
+  )
+})
+
+const sortedRegistrations = computed(() => {
+  const list = [...filteredRegistrations.value]
+  const key = regSortKey.value
+  list.sort((a, b) => {
+    const av = key === 'activity' ? findActivityName(a.activityId) : a[key]
+    const bv = key === 'activity' ? findActivityName(b.activityId) : b[key]
+    const an = parseFloat(av)
+    const bn = parseFloat(bv)
+    let cmp
+    if (!Number.isNaN(an) && !Number.isNaN(bn)) {
+      cmp = an - bn
+    } else {
+      cmp = (av ?? '').toString().localeCompare((bv ?? '').toString())
+    }
+    return regSortAsc.value ? cmp : -cmp
+  })
+  return list
+})
+
+const regTotalPages = computed(() => Math.max(1, Math.ceil(sortedRegistrations.value.length / regPerPage)))
+const regStartItem = computed(() => (sortedRegistrations.value.length === 0 ? 0 : (regPage.value - 1) * regPerPage + 1))
+const regEndItem = computed(() => Math.min(sortedRegistrations.value.length, regPage.value * regPerPage))
+const pagedRegistrations = computed(() => {
+  const p = Math.min(regPage.value, regTotalPages.value)
+  const start = (p - 1) * regPerPage
+  return sortedRegistrations.value.slice(start, start + regPerPage)
+})
 </script>
