@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import ActivityView from '../views/ActivityView.vue'
 import LoginPage from '../views/LoginPage.vue'
+import RegisterPage from '../views/RegisterPage.vue'
 import ClientDashboard from '../views/ClientDashboard.vue'
 import ManagerDashboard from '../views/ManagerDashboard.vue'
 import ActivityManagerView from '../views/ActivityManagerView.vue' // New import
@@ -10,6 +11,7 @@ import { authState } from "../auth";
 const routes = [
   { path: '/', name: 'home', component: HomeView },
   { path: '/login', name: 'login', component: LoginPage },
+  { path: '/register', name: 'register', component: RegisterPage },
   {
     path: '/client',
     name: 'clientDashboard',

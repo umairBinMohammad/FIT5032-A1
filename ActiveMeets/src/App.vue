@@ -30,8 +30,14 @@
             <li class="nav-item"><span class="nav-link disabled">For Clubs</span></li>
             <li class="nav-item"><span class="nav-link disabled">About Us</span></li>
             <li class="nav-item"><span class="nav-link disabled">Contact</span></li>
-            <li class="nav-item">
+            <li v-if="userEmail" class="nav-item">
+              <span class="nav-link fw-bold">{{ userEmail }}</span>
+            </li>
+            <li v-if="!userEmail" class="nav-item">
               <RouterLink class="nav-link" to="/login">Login</RouterLink>
+            </li>
+            <li v-else class="nav-item d-flex align-items-center">
+              <button class="nav-link btn btn-link fw-bold" @click="handleLogout" style="padding:0;">Logout</button>
             </li>
           </ul>
         </div>
@@ -50,6 +56,14 @@
 
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { authState, logout } from './auth'
+
+const userEmail = computed(() => authState.isAuthenticated ? authState.user?.email : null)
+
+const handleLogout = async () => {
+  await logout()
+}
 </script>
 
 <style>
