@@ -12,6 +12,9 @@ const routes = [
   { path: '/', name: 'home', component: HomeView },
   { path: '/login', name: 'login', component: LoginPage },
   { path: '/register', name: 'register', component: RegisterPage },
+  // Friendly redirects/aliases
+  { path: '/activity', redirect: '/client/activities' },
+  { path: '/activities', redirect: '/client/activities' },
   {
     path: '/client',
     name: 'clientDashboard',

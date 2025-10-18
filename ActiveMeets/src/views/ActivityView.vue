@@ -203,6 +203,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { fetchActivities } from '../data/activities'
 import { authState } from "../auth";
 import DOMPurify from 'dompurify'; // Import DOMPurify
+import emailjs from '@emailjs/browser'
 // --------- Dynamic data ----------
 const activities = ref([])
 const loading = ref(true)
@@ -352,6 +353,12 @@ function onSubmit() {
   all.push(entry)
   saveRegistrations(all)
   registrations.value = all
+
+  // After save, send confirmation email with attachment
+  // Use the raw form email/name to ensure exact value is sent to EmailJS
+  const rawEmail = form.value.email
+  const rawName = form.value.name
+  sendRegistrationEmail(entry, rawEmail, rawName).catch(err => console.error('Email send failed:', err))
   
   // reset, but keep list and filters
   form.value = { activityId: '', name: '', email: '', age: null }
@@ -440,4 +447,59 @@ const pagedRegistrations = computed(() => {
   const start = (p - 1) * regPerPage
   return sortedRegistrations.value.slice(start, start + regPerPage)
 })
+
+// ---------------- Email (BR D.2) ----------------
+// Note: To avoid exposing SendGrid API keys in the client, we use EmailJS which is client-friendly.
+// Configure the following IDs via EmailJS dashboard and optionally via Vite env vars for production.
+const EMAIL_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'your_service_id'
+const EMAIL_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'your_template_id'
+const EMAIL_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'your_public_key'
+
+async function sendRegistrationEmail(entry, rawEmail, rawName) {
+  try {
+    // Basic configuration guard
+    const missing = [EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, EMAIL_PUBLIC_KEY].some(v => !v || v.startsWith('your_'))
+    if (missing) {
+      console.warn('EmailJS env vars not configured. Skipping email send.')
+      alert('Registration saved. To enable email sending, configure EmailJS keys in .env.local.')
+      return
+    }
+    // Prepare attachment content as a simple text file summary
+    const activityName = findActivityName(entry.activityId)
+    const content =
+`Registration Summary\n\nActivity: ${activityName}\nName: ${entry.name}\nEmail: ${entry.email}\nAge: ${entry.age}`
+
+    // Convert to Base64 for EmailJS attachments
+    const base64 = btoa(unescape(encodeURIComponent(content)))
+    const filename = `registration_${entry.id}.txt`
+
+    const templateParams = {
+      // Only required variable: recipient address
+      to_email: rawEmail,
+      // Attachment passed programmatically
+      attachments: [ `base64:${filename}//${base64}` ]
+    }
+
+    console.debug('EmailJS template params to_email:', templateParams.to_email)
+
+    await emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, templateParams, {
+      publicKey: EMAIL_PUBLIC_KEY,
+    })
+    // Optional UX: notify success
+    alert('A confirmation email has been sent to ' + entry.email)
+  } catch (err) {
+    console.error('EmailJS send with attachment failed:', err?.text || err?.message || err)
+    // Fallback: try to send without attachment
+    try {
+      const templateParamsNoAtt = { to_email: entry.email }
+      await emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, templateParamsNoAtt, {
+        publicKey: EMAIL_PUBLIC_KEY,
+      })
+      alert('Confirmation email sent (without attachment) to ' + entry.email)
+    } catch (err2) {
+      console.error('EmailJS fallback (no attachment) failed:', err2?.text || err2?.message || err2)
+      alert('We could not send the confirmation email right now. Your registration was saved.')
+    }
+  }
+}
 </script>
