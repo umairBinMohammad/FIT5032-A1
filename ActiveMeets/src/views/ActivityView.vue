@@ -45,6 +45,7 @@
                       <option value="5">5</option>
                     </select>
                   </div>
+                  <button class="btn btn-sm btn-outline-primary" @click="openMap(a)">Show on Map</button>
                 </div>
               </div>
             </div>
@@ -197,14 +198,42 @@
       </div>
     </div>
   </section>
+
+  <!-- Map Modal -->
+  <div class="modal fade" :id="mapModalId" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">{{ selectedActivity?.name || 'Activity Location' }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="activityMap"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import { fetchActivities } from '../data/activities'
 import { authState } from "../auth";
 import DOMPurify from 'dompurify'; // Import DOMPurify
 import emailjs from '@emailjs/browser'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import { Modal } from 'bootstrap'
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
+import markerIcon from 'leaflet/dist/images/marker-icon.png'
+import markerShadow from 'leaflet/dist/images/marker-shadow.png'
+
+// Fix Leaflet default icon paths under bundlers
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+})
 // --------- Dynamic data ----------
 const activities = ref([])
 const loading = ref(true)
@@ -219,6 +248,14 @@ onMounted(async () => {
   registrations.value = loadRegistrations()
   ratings.value = loadRatings()
 })
+
+onBeforeUnmount(() => {
+  // Clean up map if exists
+  if (map.value) {
+    map.value.remove()
+    map.value = null
+  }
+})
 // filter logic
 function filterActivities() {
   const q = query.value.toLowerCase()
@@ -230,6 +267,34 @@ function selectActivity(a) {
   form.value.activityId = a.id
   validateActivity(true) // Validate on selection
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// --------- Map Modal (Leaflet) ----------
+const selectedActivity = ref(null)
+const map = ref(null)
+const mapModalId = 'mapModal'
+
+async function openMap(activity) {
+  selectedActivity.value = activity
+  // Show Bootstrap modal
+  const modalEl = document.getElementById(mapModalId)
+  if (!modalEl) return
+  const modal = new Modal(modalEl)
+  modal.show()
+
+  await nextTick()
+  // Initialize Leaflet map once modal content is rendered and visible size is known
+  if (map.value) {
+    map.value.remove()
+    map.value = null
+  }
+  const { lat, lng, name, location } = activity
+  map.value = L.map('activityMap').setView([lat, lng], 14)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map.value)
+  L.marker([lat, lng]).addTo(map.value).bindPopup(`<b>${name}</b><br/>${location}`).openPopup()
 }
 // New: Rating functions
 const RATINGS_STORAGE_KEY = 'activemeets_ratings_v1'
@@ -541,3 +606,8 @@ function exportRegistrationsCsv() {
   downloadCsv(`registrations_${timestamp}.csv`, csv)
 }
 </script>
+
+<style>
+/* Ensure the Leaflet map fills the container height */
+#activityMap { height: 360px; }
+</style>
