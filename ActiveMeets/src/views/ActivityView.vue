@@ -187,7 +187,8 @@
                   <button class="btn btn-outline-secondary" :disabled="regPage>=regTotalPages" @click="regPage++">Next</button>
                 </div>
               </div>
-              <div v-if="registrations.length" class="d-grid mt-2">
+              <div v-if="filteredRegistrations.length" class="d-flex gap-2 mt-2">
+                <button class="btn btn-outline-primary btn-sm" @click="exportRegistrationsCsv">Export CSV</button>
                 <button class="btn btn-outline-secondary btn-sm" @click="clearAll">Clear All</button>
               </div>
             </div>
@@ -501,5 +502,42 @@ async function sendRegistrationEmail(entry, rawEmail, rawName) {
       alert('We could not send the confirmation email right now. Your registration was saved.')
     }
   }
+}
+
+// --------- CSV Export ----------
+function csvEscape(val) {
+  const s = (val ?? '').toString()
+  if (/[",\n]/.test(s)) {
+    return '"' + s.replaceAll('"', '""') + '"'
+  }
+  return s
+}
+
+function downloadCsv(filename, csvText) {
+  const blob = new Blob(["\uFEFF" + csvText], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function exportRegistrationsCsv() {
+  const headers = ['Activity','Name','Email','Age']
+  const lines = [headers.join(',')]
+  for (const r of sortedRegistrations.value) {
+    lines.push([
+      csvEscape(findActivityName(r.activityId)),
+      csvEscape(r.name),
+      csvEscape(r.email),
+      csvEscape(r.age)
+    ].join(','))
+  }
+  const csv = lines.join('\n')
+  const timestamp = new Date().toISOString().replaceAll(':','-')
+  downloadCsv(`registrations_${timestamp}.csv`, csv)
 }
 </script>

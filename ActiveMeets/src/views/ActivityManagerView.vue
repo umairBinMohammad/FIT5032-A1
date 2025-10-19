@@ -155,7 +155,8 @@
               <button class="btn btn-outline-secondary" :disabled="page>=totalPages" @click="page++">Next</button>
             </div>
           </div>
-          <div v-if="activities.length" class="d-grid mt-2">
+          <div v-if="filteredActivities.length" class="d-flex gap-2 mt-2">
+            <button class="btn btn-outline-primary btn-sm" @click="exportActivitiesCsv">Export CSV</button>
             <button class="btn btn-outline-secondary btn-sm" @click="clearAll">Clear All</button>
           </div>
         </div>
@@ -325,5 +326,43 @@ function removeActivity(id) {
 function clearAll() {
   saveActivities([])
   activities.value = []
+}
+
+// --------- CSV Export ----------
+function csvEscape(val) {
+  const s = (val ?? '').toString()
+  if (/[",\n]/.test(s)) {
+    return '"' + s.replaceAll('"', '""') + '"'
+  }
+  return s
+}
+
+function downloadCsv(filename, csvText) {
+  const blob = new Blob(["\uFEFF" + csvText], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function exportActivitiesCsv() {
+  const headers = ['Name','Location','Level','Age','Accessibility']
+  const lines = [headers.join(',')]
+  for (const a of sortedActivities.value) {
+    lines.push([
+      csvEscape(a.name),
+      csvEscape(a.location),
+      csvEscape(a.level),
+      csvEscape(a.age),
+      csvEscape(a.accessibility)
+    ].join(','))
+  }
+  const csv = lines.join('\n')
+  const timestamp = new Date().toISOString().replaceAll(':','-')
+  downloadCsv(`activities_${timestamp}.csv`, csv)
 }
 </script>
