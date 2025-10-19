@@ -30,11 +30,11 @@
                     {{ getAverageRating(a.id) }} / 5
                   </div>
                 </div>
-                <div class="card-footer bg-white d-flex justify-content-between align-items-center">
-                  <button class="btn btn-sm btn-outline-secondary" @click="selectActivity(a)">
+                <div class="card-footer bg-white d-flex flex-wrap align-items-center gap-2">
+                  <button class="btn btn-sm btn-outline-secondary btn-compact" @click="selectActivity(a)">
                     Select
                   </button>
-                  <div class="d-flex align-items-center">
+                  <div class="d-flex align-items-center gap-2">
                     <label class="me-2 mb-0 small">Rate:</label>
                     <select class="form-select form-select-sm w-auto" @change="submitRating(a.id, $event.target.value)">
                       <option value="0">0</option>
@@ -45,7 +45,10 @@
                       <option value="5">5</option>
                     </select>
                   </div>
-                  <button class="btn btn-sm btn-outline-primary" @click="openMap(a)">Show on Map</button>
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary btn-compact" @click="openMap(a)">Show on Map</button>
+                    <button class="btn btn-sm btn-outline-success btn-compact" @click="showRoute(a)">Show Route</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -227,6 +230,8 @@ import { Modal } from 'bootstrap'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css'
+import 'leaflet-routing-machine'
 
 // Fix Leaflet default icon paths under bundlers
 L.Icon.Default.mergeOptions({
@@ -273,6 +278,7 @@ function selectActivity(a) {
 const selectedActivity = ref(null)
 const map = ref(null)
 const mapModalId = 'mapModal'
+let routingControl = null
 
 async function openMap(activity) {
   selectedActivity.value = activity
@@ -295,6 +301,57 @@ async function openMap(activity) {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map.value)
   L.marker([lat, lng]).addTo(map.value).bindPopup(`<b>${name}</b><br/>${location}`).openPopup()
+}
+
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) {
+      reject(new Error('Geolocation is not supported by this browser.'))
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      err => reject(err),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
+  })
+}
+
+async function showRoute(activity) {
+  try {
+    await openMap(activity)
+    const user = await getCurrentPosition()
+    const dest = { lat: activity.lat, lng: activity.lng }
+
+    // Remove previous route if any
+    if (routingControl) {
+      routingControl.remove()
+      routingControl = null
+    }
+
+    // Fit map to both points
+    const group = L.featureGroup([
+      L.marker([user.lat, user.lng]),
+      L.marker([dest.lat, dest.lng])
+    ])
+    map.value.fitBounds(group.getBounds().pad(0.25))
+
+    // Add routing control (OSRM demo server)
+    routingControl = L.Routing.control({
+      waypoints: [ L.latLng(user.lat, user.lng), L.latLng(dest.lat, dest.lng) ],
+      lineOptions: { styles: [{ color: '#28a745', weight: 5, opacity: 0.9 }] },
+      router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+      show: false,
+      addWaypoints: false,
+      routeWhileDragging: false,
+      draggableWaypoints: false,
+      fitSelectedRoutes: true,
+      showAlternatives: false
+    }).addTo(map.value)
+  } catch (e) {
+    console.error('Route error:', e)
+    alert('Unable to get your location or draw the route.')
+  }
 }
 // New: Rating functions
 const RATINGS_STORAGE_KEY = 'activemeets_ratings_v1'
@@ -610,4 +667,17 @@ function exportRegistrationsCsv() {
 <style>
 /* Ensure the Leaflet map fills the container height */
 #activityMap { height: 360px; }
+
+/* Compact button variant to avoid cramming while keeping readability */
+.btn-compact {
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+/* Improve spacing for controls in card footer on narrow screens */
+.card-footer .form-select.form-select-sm {
+  min-width: 4.5rem;
+}
 </style>
